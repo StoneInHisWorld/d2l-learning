@@ -20,9 +20,7 @@ class LeNet(BasicNN):
             nn.Flatten(),
             nn.Linear(16 * 6 * 6, 120), nn.ReLU(),
             nn.Linear(120, 84), nn.ReLU(),
-            # nn.Linear(84, out_features)
-            cl.DualOutputLayer(
-                84, out_features[0], out_features[1]
-            )
+            nn.Linear(84, out_features),
+            nn.Softmax(dim=1)
         ]
         super().__init__(device, *layers)

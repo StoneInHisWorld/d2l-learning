@@ -13,7 +13,7 @@ VGG_11 = (
 class VGG(BasicNN):
     required_shape = (224, 224)
 
-    def __init__(self, in_channels, out_feature: Tuple[int, int],
+    def __init__(self, in_channels: int, out_feature: int,
                  conv_arch: Tuple[int, int] = VGG_11,
                  device: torch.device = 'cpu') -> None:
         conv_blks = [
@@ -33,7 +33,7 @@ class VGG(BasicNN):
             nn.Dropout(0.5),
             nn.Linear(4096, 4096), nn.ReLU(),
             nn.Dropout(0.5),
-            cl.DualOutputLayer(4096, out_feature[0], out_feature[1],
-                               dropout_rate=0.5, momentum=0.95)
+            nn.Linear(4096, out_feature),
+            nn.Softmax(dim=1)
         ]
         super().__init__(device, *conv_blks)

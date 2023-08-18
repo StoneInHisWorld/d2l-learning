@@ -29,7 +29,7 @@ def split_data(features: torch.Tensor, labels: torch.Tensor, train, test, valid=
     data_len = features.shape[0]
     train_len = int(data_len * train)
     valid_len = int(data_len * valid)
-    test_len = int(data_len * test)
+    test_len = data_len - train_len - valid_len
     # # 将高维特征数据打上id
     # features_ids = np.array([
     #     np.ones((1, *self.__features__.shape[2:])) * i
@@ -42,21 +42,23 @@ def split_data(features: torch.Tensor, labels: torch.Tensor, train, test, valid=
         features = features[index]
         labels = labels[index]
     # 数据集分割
+    print('splitting data...')
     train_fea, valid_fea, test_fea = features.split((train_len, valid_len, test_len))
     train_labels, valid_labels, test_labels = labels.split((train_len, valid_len, test_len))
     return (train_fea, train_labels), (valid_fea, valid_labels), \
         (test_fea, test_labels)
 
 
-def read_img(path: str, required_shape: Tuple[int, int] = None, mode: str = 'L') -> torch.Tensor:
+# def read_img(path: str, required_shape: Tuple[int, int] = None, mode: str = 'L') -> torch.Tensor:
+def read_img(path: str, required_shape: Tuple[int, int] = None, mode: str = 'L') -> np.ndarray:
     img_modes = ['L', 'RGB']
     assert mode in img_modes, f'不支持的图像模式{mode}！'
     img = Image.open(path).convert(mode)
-    # img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
     # 若有要求shape，则进行resize，边缘填充黑条
     if required_shape:
         img = tools.resize_img(img, required_shape)
-    img = torch.tensor(np.array(img))
+    img = np.array(img)
+    # img = torch.as_tensor(np.array(img), dtype=torch.float32)
     # 复原出通道。1表示样本数量维
     if mode == 'L':
         img_channels = 1

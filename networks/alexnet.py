@@ -23,7 +23,7 @@ class AlexNet(BasicNN):
             nn.MaxPool2d(kernel_size=3, stride=2), nn.Flatten(),
             nn.Linear(6400, 4096), nn.ReLU(), nn.Dropout(p=0.5),
             nn.Linear(4096, 4096), nn.ReLU(), nn.Dropout(p=0.5),
-            # cl.DualOutputLayer(4096, out_features[0], out_features[1], 0.5)
-            nn.Linear(4096, out_features)
+            nn.Linear(4096, out_features),
+            nn.Softmax(dim=1)
         ]
         super().__init__(device, *layers)
