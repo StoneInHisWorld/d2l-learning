@@ -27,6 +27,7 @@ print('collecting data...')
 device = 'cpu'
 train_data = LeavesTrain('./classify-leaves', device=device)
 test_data = LeavesTest('./classify-leaves', device=device)
+collate_func = train_data.collate_fn
 acc_func = utils.data_related.single_argmax_accuracy
 
 print('preprocessing...')
@@ -43,12 +44,12 @@ del train_data
 for base, epochs, batch_size, loss, lr, optim_str, w_decay in permutation(
         [], base_s, epochs_es, batch_sizes, loss_es, lr_s, optim_str_s, w_decay_s
 ):
-    train_iter = train_ds.to_loader(shuffle=False)
-    valid_iter = valid_ds.to_loader(shuffle=False)
+    train_iter = train_ds.to_loader(batch_size, shuffle=False, collate_fn=collate_func)
+    valid_iter = valid_ds.to_loader(shuffle=False, collate_fn=collate_func)
     dataset_name = LeavesTrain.__name__
 
     print('constructing network...')
-    in_channels = train_ds.feature_shape[1]
+    in_channels = LeavesTrain.img_channels
     out_features = train_ds.label_shape[1]
     # TODO: 选择一个网络类型
     # net = VGG(in_channels, out_features, conv_arch=vgg.VGG_11, device=device)

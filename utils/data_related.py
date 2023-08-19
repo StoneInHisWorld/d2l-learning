@@ -13,7 +13,7 @@ def single_argmax_accuracy(Y_HAT: torch.Tensor, Y: torch.Tensor) -> float:
     return float(sum(cmp))
 
 
-def split_data(features: torch.Tensor, labels: torch.Tensor, train, test, valid=.0,
+def split_data(features, labels, train, test, valid=.0,
                shuffle=True):
     """
     分割数据集为训练集、测试集、验证集（可选）
@@ -43,8 +43,10 @@ def split_data(features: torch.Tensor, labels: torch.Tensor, train, test, valid=
         labels = labels[index]
     # 数据集分割
     print('splitting data...')
-    train_fea, valid_fea, test_fea = features.split((train_len, valid_len, test_len))
-    train_labels, valid_labels, test_labels = labels.split((train_len, valid_len, test_len))
+    # train_fea, valid_fea, test_fea = features.split((train_len, valid_len, test_len))
+    # train_labels, valid_labels, test_labels = labels.split((train_len, valid_len, test_len))
+    train_fea, valid_fea, test_fea = np.split(features, (train_len, train_len + valid_len))
+    train_labels, valid_labels, test_labels = np.split(labels, (train_len, train_len + valid_len))
     return (train_fea, train_labels), (valid_fea, valid_labels), \
         (test_fea, test_labels)
 
