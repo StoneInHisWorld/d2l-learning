@@ -47,8 +47,8 @@ for base, epochs, batch_size, loss, lr, optim_str, w_decay in permutation(
 ):
     # train_iter = train_ds.to_loader(batch_size, shuffle=False, collate_fn=collate_func, lazy=True)
     # valid_iter = valid_ds.to_loader(shuffle=False, collate_fn=collate_func, lazy=True)
-    train_iter = dr.to_loader(train_ds, batch_size, lazy=True, read_fn=read_fn, collate_fn=collate_fn, load_multiple=5)
-    valid_iter = dr.to_loader(train_ds, lazy=True, read_fn=read_fn, collate_fn=collate_fn, load_multiple=5)
+    train_iter = dr.to_loader(train_ds, batch_size, lazy=True, read_fn=read_fn, collate_fn=collate_fn, load_multiple=20)
+    valid_iter = dr.to_loader(train_ds, lazy=True, read_fn=read_fn, collate_fn=collate_fn, load_multiple=20)
     dataset_name = LeavesTrain.__name__
 
     print('constructing network...')

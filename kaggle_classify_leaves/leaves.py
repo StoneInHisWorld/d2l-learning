@@ -139,8 +139,10 @@ class LeavesTrain:
         # X = torch.as_tensor(X, dtype=torch.float32)
         # y = torch.as_tensor(y, dtype=torch.float32)
         # X, y = X.to(self.device), y.to(self.device)
-        X = torch.tensor(X, dtype=torch.float32, device=self.device, requires_grad=True)
-        y = torch.tensor(y, dtype=torch.float32, device=self.device, requires_grad=True)
+        X = torch.from_numpy(X).to(torch.float32).to(self.device).requires_grad_(True) \
+            if type(X) != torch.Tensor else X.to(torch.float32).to(self.device).requires_grad_(True)
+        y = torch.tensor(y, dtype=torch.float32, device=self.device, requires_grad=True) \
+            if type(y) != torch.Tensor else y.to(torch.float32).to(self.device).requires_grad_(True)
         return X, y
 
     def read_fn(self, index):
@@ -149,6 +151,7 @@ class LeavesTrain:
             X.append(read_img(path, required_shape=self.__required_shape__, mode='RGB'))
         # X = torch.from_numpy(np.array(X))
         return np.array(X)
+
 
 class LeavesTest:
 

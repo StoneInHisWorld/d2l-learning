@@ -25,6 +25,7 @@ class LazyDataLoader:
 
     def __len__(self):
         return len(self.__index_loader__) * self.__multiple__
+
     # def load_data(self):
     #     """
     #     将单个loader所涉及的数据加载到内存中，打包成DataLoader
