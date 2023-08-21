@@ -1,6 +1,6 @@
 import torch
 
-import utils.data_related
+import utils.data_related as dr
 import utils.tools as tools
 from leaves import LeavesTrain, LeavesTest
 from networks.alexnet import AlexNet
@@ -44,8 +44,10 @@ del train_data
 for base, epochs, batch_size, loss, lr, optim_str, w_decay in permutation(
         [], base_s, epochs_es, batch_sizes, loss_es, lr_s, optim_str_s, w_decay_s
 ):
-    train_iter = train_ds.to_loader(batch_size, shuffle=False, collate_fn=collate_func)
-    valid_iter = valid_ds.to_loader(shuffle=False, collate_fn=collate_func)
+    # train_iter = train_ds.to_loader(batch_size, shuffle=False, collate_fn=collate_func, lazy=True)
+    # valid_iter = valid_ds.to_loader(shuffle=False, collate_fn=collate_func, lazy=True)
+    train_iter = dr.to_loader(train_ds, batch_size, lazy=True, read_fn=LeavesTrain.read_fn, load_multiple=5)
+    valid_iter = dr.to_loader(train_ds, lazy=True, read_fn=LeavesTrain.read_fn, load_multiple=5)
     dataset_name = LeavesTrain.__name__
 
     print('constructing network...')

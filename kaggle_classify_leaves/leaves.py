@@ -8,7 +8,6 @@ import torch
 from tqdm import tqdm
 
 from utils.data_related import read_img, split_data
-from utils.datasets import DataSet
 
 
 class LeavesTrain:
@@ -128,15 +127,23 @@ class LeavesTrain:
         return self.__device__
 
     def collate_fn(self, data):
-        X, y = [], []
-        for path, label in data:
-            X.append(read_img(path, required_shape=self.__required_shape__, mode='RGB'))
-            y.append(label)
-        X = torch.from_numpy(np.vstack(X)).to(torch.float32)
-        y = torch.from_numpy(np.vstack(y)).to(torch.float32)
-        X, y = X.to(self.device), y.to(self.device)
-        return X, y
+        pass
+        # X, y = [], []
+        # for path, label in data:
+        #     X.append(read_img(path, required_shape=self.__required_shape__, mode='RGB'))
+        #     y.append(label)
+        # X = torch.from_numpy(np.vstack(X)).to(torch.float32)
+        # y = torch.from_numpy(np.vstack(y)).to(torch.float32)
+        # X, y = X.to(self.device), y.to(self.device)
+        # return X, y
 
+    def read_fn(self, index):
+        X = []
+        for path in index:
+            X.append(read_img(path, required_shape=self.__required_shape__, mode='RGB'))
+        X = torch.from_numpy(np.vstack(X)).to(torch.float32)
+        X = X.to(self.device)
+        return X
 
 class LeavesTest:
 

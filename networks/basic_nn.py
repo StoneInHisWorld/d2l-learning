@@ -1,3 +1,5 @@
+from typing import Iterable, Sized, Any
+
 import torch
 import torch.nn as nn
 from torch.nn import Module
@@ -21,8 +23,8 @@ class BasicNN(nn.Sequential):
     def __str__(self):
         return '网络结构：\n' + super().__str__() + '\n所处设备：' + str(self.__device__)
 
-    def train_(self, data_iter, optimizer, num_epochs=10, loss: nn.Module = nn.L1Loss(),
-               acc_func=single_argmax_accuracy, valid_iter=None) -> History:
+    def train_(self, data_iter, optimizer, num_epochs=10,
+               loss: nn.Module = nn.L1Loss(), acc_func=single_argmax_accuracy, valid_iter=None) -> History:
         history = History('train_l', 'train_acc') if not valid_iter else \
             History('train_l', 'train_acc', 'valid_l', 'valid_acc')
         for _ in trange(num_epochs, unit='epoch', desc='Epoch training...',

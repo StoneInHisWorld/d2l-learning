@@ -1,9 +1,12 @@
 import numpy as np
 import torch
 from PIL import Image
-from typing import Tuple
+from typing import Tuple, Callable
+
+from torch.utils.data import DataLoader
 
 from utils import tools
+from utils.datasets import DataSet, LazyDataLoader
 
 
 def single_argmax_accuracy(Y_HAT: torch.Tensor, Y: torch.Tensor) -> float:
@@ -38,7 +41,7 @@ def split_data(features, labels, train, test, valid=.0,
     # self.__features__ = np.concatenate((features_ids, self.__features__), 1)
     # 数据集打乱
     if shuffle:
-        index = torch.randint(0, data_len, (data_len, ))
+        index = torch.randint(0, data_len, (data_len,))
         features = features[index]
         labels = labels[index]
     # 数据集分割
@@ -71,3 +74,30 @@ def read_img(path: str, required_shape: Tuple[int, int] = None, mode: str = 'L')
     # img = torch.hstack((path.split('/')[-1], img))
     return img
 
+
+def to_loader(dataset: DataSet, batch_size: int = None, shuffle=True, collate_fn=None, lazy: bool = False,
+              read_fn: Callable = None, load_multiple: int = 1,
+              **kwargs) -> DataLoader | LazyDataLoader:
+    """
+    将数据集转化为DataLoader
+    :param dataset:
+    :param load_multiple: 懒加载单次加载的倍数。懒加载每次读取数据量规定为`load_multiple * batch_size`。仅在`lazy = True`时有效
+    :param read_fn: 懒加载数据加载器读取方法。仅在`lazy = True`时有效
+    :param lazy: 启用懒加载DataLoader
+    :param collate_fn: 数据预处理函数
+    :param batch_size: DataLoader每次供给的数据量。默认为整个数据集
+    :param shuffle: 是否打乱
+    :param kwargs: Dataloader额外参数
+    :return: DataLoader对象
+    """
+    if not batch_size:
+        batch_size = dataset.feature_shape[0]
+    if lazy:
+        return LazyDataLoader(
+            dataset, read_fn, batch_size, load_multiple=load_multiple, shuffle=shuffle,
+            collate_fn=collate_fn, **kwargs
+        )
+    else:
+        return DataLoader(
+            dataset, batch_size, shuffle=shuffle, collate_fn=collate_fn, **kwargs
+        )
