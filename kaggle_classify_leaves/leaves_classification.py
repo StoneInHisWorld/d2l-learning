@@ -27,8 +27,9 @@ print('collecting data...')
 device = 'cpu'
 train_data = LeavesTrain('./classify-leaves', device=device)
 test_data = LeavesTest('./classify-leaves', device=device)
-collate_func = train_data.collate_fn
-acc_func = utils.data_related.single_argmax_accuracy
+collate_fn = train_data.collate_fn
+read_fn = train_data.read_fn
+acc_func = dr.single_argmax_accuracy
 
 print('preprocessing...')
 # 训练集与测试集封装以及数据转换，并对标签进行独热编码
@@ -46,8 +47,8 @@ for base, epochs, batch_size, loss, lr, optim_str, w_decay in permutation(
 ):
     # train_iter = train_ds.to_loader(batch_size, shuffle=False, collate_fn=collate_func, lazy=True)
     # valid_iter = valid_ds.to_loader(shuffle=False, collate_fn=collate_func, lazy=True)
-    train_iter = dr.to_loader(train_ds, batch_size, lazy=True, read_fn=LeavesTrain.read_fn, load_multiple=5)
-    valid_iter = dr.to_loader(train_ds, lazy=True, read_fn=LeavesTrain.read_fn, load_multiple=5)
+    train_iter = dr.to_loader(train_ds, batch_size, lazy=True, read_fn=read_fn, collate_fn=collate_fn, load_multiple=5)
+    valid_iter = dr.to_loader(train_ds, lazy=True, read_fn=read_fn, collate_fn=collate_fn, load_multiple=5)
     dataset_name = LeavesTrain.__name__
 
     print('constructing network...')

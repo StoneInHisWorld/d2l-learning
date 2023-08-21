@@ -6,7 +6,8 @@ from typing import Tuple, Callable
 from torch.utils.data import DataLoader
 
 from utils import tools
-from utils.datasets import DataSet, LazyDataLoader
+from utils.datasets import DataSet
+from utils.lazy_loader import LazyDataLoader
 
 
 def single_argmax_accuracy(Y_HAT: torch.Tensor, Y: torch.Tensor) -> float:
@@ -69,7 +70,7 @@ def read_img(path: str, required_shape: Tuple[int, int] = None, mode: str = 'L')
         img_channels = 1
     elif mode == 'RGB':
         img_channels = 3
-    img = img.reshape((1, img_channels, *img.shape[:2]))
+    img = img.reshape((img_channels, *img.shape[:2]))
     # print(path.split('/')[-1])
     # img = torch.hstack((path.split('/')[-1], img))
     return img
@@ -77,7 +78,7 @@ def read_img(path: str, required_shape: Tuple[int, int] = None, mode: str = 'L')
 
 def to_loader(dataset: DataSet, batch_size: int = None, shuffle=True, collate_fn=None, lazy: bool = False,
               read_fn: Callable = None, load_multiple: int = 1,
-              **kwargs) -> DataLoader | LazyDataLoader:
+              **kwargs) -> DataLoader or LazyDataLoader:
     """
     将数据集转化为DataLoader
     :param dataset:

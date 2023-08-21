@@ -126,24 +126,29 @@ class LeavesTrain:
     def device(self):
         return self.__device__
 
-    def collate_fn(self, data):
-        pass
+    def collate_fn(self, data: list):
         # X, y = [], []
         # for path, label in data:
         #     X.append(read_img(path, required_shape=self.__required_shape__, mode='RGB'))
         #     y.append(label)
-        # X = torch.from_numpy(np.vstack(X)).to(torch.float32)
-        # y = torch.from_numpy(np.vstack(y)).to(torch.float32)
+        # data = np.array(data)
+        # X, y = data[:, 0], data[:, 1]
+        X, y = np.array([x for x, _ in data]), torch.vstack([y for _, y in data])
+        # X = torch.from_numpy(X).to(torch.float32)
+        # y = torch.from_numpy(y).to(torch.float32)
+        # X = torch.as_tensor(X, dtype=torch.float32)
+        # y = torch.as_tensor(y, dtype=torch.float32)
         # X, y = X.to(self.device), y.to(self.device)
-        # return X, y
+        X = torch.tensor(X, dtype=torch.float32, device=self.device, requires_grad=True)
+        y = torch.tensor(y, dtype=torch.float32, device=self.device, requires_grad=True)
+        return X, y
 
     def read_fn(self, index):
         X = []
         for path in index:
             X.append(read_img(path, required_shape=self.__required_shape__, mode='RGB'))
-        X = torch.from_numpy(np.vstack(X)).to(torch.float32)
-        X = X.to(self.device)
-        return X
+        # X = torch.from_numpy(np.array(X))
+        return np.array(X)
 
 class LeavesTest:
 
