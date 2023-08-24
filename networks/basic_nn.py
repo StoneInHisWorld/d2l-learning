@@ -1,4 +1,4 @@
-from typing import Iterable, Sized, Any
+from typing import Iterable, Sized, Any, Callable
 
 import torch
 import torch.nn as nn
@@ -23,40 +23,52 @@ class BasicNN(nn.Sequential):
     def __str__(self):
         return '网络结构：\n' + super().__str__() + '\n所处设备：' + str(self.__device__)
 
-    def train_(self, data_iter, optimizer, num_epochs=10,
-               loss: nn.Module = nn.L1Loss(), acc_func=single_argmax_accuracy, valid_iter=None) -> History:
+    def train_(self, data_iter, optimizer, num_epochs=10, ls_fn: nn.Module = nn.L1Loss(),
+               acc_fn=single_argmax_accuracy, valid_iter=None) -> History:
+        """
+        神经网络训练函数。
+        :param data_iter: 训练数据供给迭代器
+        :param optimizer: 网络参数优化器
+        :param num_epochs: 迭代世代
+        :param ls_fn: 训练损失函数
+        :param acc_fn: 准确率计算函数
+        :param valid_iter: 验证数据供给迭代器
+        :return: 训练数据记录`History`对象
+        """
         history = History('train_l', 'train_acc') if not valid_iter else \
             History('train_l', 'train_acc', 'valid_l', 'valid_acc')
-        for _ in trange(num_epochs, unit='epoch', desc='Epoch training...',
-                        mininterval=1):
-            metric = Accumulator(3)  # 批次训练损失总和，准确率，样本数
-            with tqdm(total=len(data_iter), unit='batch', position=0,
-                      desc=f'Epoch{_ + 1}/{num_epochs} training...',
-                      mininterval=1) as pbar:
+        with tqdm(total=len(data_iter), unit='批', position=0,
+                  desc=f'训练中...', mininterval=1) as pbar:
+            for epoch in range(num_epochs):
+                pbar.reset(len(data_iter))
+                pbar.set_description(f'世代{epoch + 1}/{num_epochs} 训练中...')
+                metric = Accumulator(3)  # 批次训练损失总和，准确率，样本数
+                # 训练主循环
                 for X, y in data_iter:
                     with torch.enable_grad():
                         self.train()
                         optimizer.zero_grad()
-                        lo = loss(self(X), y)
+                        lo = ls_fn(self(X), y)
                         lo.backward()
                         optimizer.step()
                     with torch.no_grad():
-                        correct = acc_func(self(X), y)
+                        correct = acc_fn(self(X), y)
                         num_examples = X.shape[0]
                         metric.add(lo.item() * num_examples, correct, num_examples)
                     pbar.update(1)
-                pbar.close()
-            if not valid_iter:
-                history.add(
-                    ['train_l', 'train_acc'],
-                    [metric[0] / metric[2], metric[1] / metric[2]]
-                )
-            else:
-                valid_acc, valid_l = self.test_(valid_iter, acc_func, loss)
-                history.add(
-                    ['train_l', 'train_acc', 'valid_l', 'valid_acc'],
-                    [metric[0] / metric[2], metric[1] / metric[2], valid_l, valid_acc]
-                )
+                # 记录训练数据
+                if not valid_iter:
+                    history.add(
+                        ['train_l', 'train_acc'],
+                        [metric[0] / metric[2], metric[1] / metric[2]]
+                    )
+                else:
+                    valid_acc, valid_l = self.test_(valid_iter, acc_fn, ls_fn)
+                    history.add(
+                        ['train_l', 'train_acc', 'valid_l', 'valid_acc'],
+                        [metric[0] / metric[2], metric[1] / metric[2], valid_l, valid_acc]
+                    )
+            pbar.close()
         return history
 
     @staticmethod
@@ -164,7 +176,7 @@ class BasicNN(nn.Sequential):
             )
         return history
 
-    def test_(self, test_iter, acc_func=single_argmax_accuracy, loss=nn.L1Loss) \
+    def test_(self, test_iter, acc_func=single_argmax_accuracy, loss: Callable = nn.L1Loss) \
             -> [float, float]:
         """
         测试方法，取出迭代器中的下一batch数据，进行预测后计算准确度和损失
