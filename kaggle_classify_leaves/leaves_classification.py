@@ -12,13 +12,14 @@ from utils.tools import permutation
 import utils.kaggle_utils as kutils
 
 # 调参面板
+exp_no = 2
 random_seed = 42
 base_s = [2]
-epochs_es = [10]
-batch_sizes = [2, 4, 8, 16, 32, 64, 128, 256]
+epochs_es = [300]
+batch_sizes = [8, 16, 32, 64, 128]
 loss_es = ['entro']
-lr_s = [1e2, 1e1, 1e0, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
-optim_str_s = ['sgd']
+lr_s = [1e2, 1e1, 1e0, 1e-1, 1e-2, 1e-3]
+optim_str_s = ['adam']
 w_decay_s = [0.]
 
 torch.random.manual_seed(random_seed)
@@ -29,17 +30,17 @@ device = tools.try_gpu(0)
 # device = 'cpu'
 # train_data = LeavesTrain('./classify-leaves', device=device)
 # test_data = LeavesTest('./classify-leaves', device=device)
-train_data = LeavesTrain('./classify-leaves', device=device, lazy=False)
+train_data = LeavesTrain('./classify-leaves', device=device, lazy=False, small_data=1)
 test_data = LeavesTest('./classify-leaves', device=device)
 # collate_fn = train_data.collate_fn
 # read_fn = train_data.read_fn
 acc_func = dr.single_argmax_accuracy
 
 print('preprocessing...')
-# 训练集与测试集封装以及数据转换，并对标签进行独热编码
+# 训练集封装，并生成训练集和验证集的sampler
 dummies_column = train_data.dummy
 train_ds = train_data.to_dataset()
-train_sampler, valid_sampler = dr.split_data_(train_ds)
+train_sampler, valid_sampler = dr.split_data(train_ds)
 # train_ds = DataSet(
 #     train_data.train_data[0], train_data.train_data[1]
 # )
@@ -89,13 +90,12 @@ for base, epochs, batch_size, loss, lr, optim_str, w_decay in permutation(
         lr=lr, random_seed=random_seed,
         train_l=sum(history['train_l']) / len(history['train_l']),
         train_acc=sum(history['train_acc']) / len(history['train_acc']),
-        dataset=dataset_name, duration=time_span
+        dataset=dataset_name, duration=time_span, exp_no=exp_no
     )
     print(f'train_acc = {history["train_acc"][-1] * 100:.2f}%, '
-          f'train_l = {history["train_l"][-1]:.5f}\n')
+          f'train_l = {history["train_l"][-1]:.5f}')
     print(f'valid_acc = {history["valid_acc"][-1] * 100:.2f}%, '
           f'valid_l = {history["valid_l"][-1]:.5f}\n')
 
     print('predicting...')
-    # kutils.kaggle_predict(net, test_data.raw_features, test_data.test_data, dummies_column,
-    #                       fea_colName='image')
+    kutils.kaggle_predict(net, test_data.img_paths, test_data.imgs, dummies_column)

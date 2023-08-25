@@ -1,4 +1,7 @@
+import random
+
 import PIL.Image
+import numpy as np
 import pandas as pd
 import torch
 from PIL import Image as IMAGE
@@ -6,7 +9,7 @@ from PIL.Image import Image
 from matplotlib import pyplot as plt
 from torch import cuda, nn as nn
 from torch.nn import init as init
-from typing import Tuple
+from typing import Tuple, Sized, Iterable
 
 optimizers = ['sgd', 'adam']
 loss_es = ['l1', 'entro', 'mse', 'huber']
@@ -27,7 +30,7 @@ def write_log(path: str, **kwargs):
 
 
 def plot_history(history, mute=False, title=None, xlabel=None,
-                 ylabel=None, savefig_as=None):
+                 ylabel=None, savefig_as=None, accumulative=False):
     for k, log in history:
         plt.plot(range(len(log)), log, label=k)
     if xlabel:
@@ -41,6 +44,8 @@ def plot_history(history, mute=False, title=None, xlabel=None,
     plt.legend()
     if not mute:
         plt.show()
+    if not accumulative:
+        plt.clf()
 
 
 def try_gpu(i=0):
@@ -134,3 +139,14 @@ def resize_img(image: Image, required_shape: Tuple[int, int], img_mode='L') -> I
     new_image.paste(image, (dx, dy))
 
     return new_image
+
+
+def data_slicer(data, data_portion=1., shuffle=True) -> np.ndarray:
+    assert 0 <= data_portion <= 1.0, '切分的数据集需为源数据集的子集！'
+    if isinstance(data, np.ndarray):
+        shuffle_fn = np.random.shuffle
+    else:
+        shuffle_fn = random.shuffle
+    if shuffle:
+        shuffle_fn(data)
+    return data[:int(data_portion * len(data))]
