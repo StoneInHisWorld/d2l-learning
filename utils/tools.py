@@ -64,7 +64,7 @@ def permutation(res, *args):
     生成超参数列表。
     :param res: 结果列表。每个输出的列表都以`res`为前缀。
     :param args: 超参数列表。每个超参数输入均为列表，列表中的值为该超参数可能取值
-    :return: 超参数取值列表迭代器。
+    :return: 超参数取值列表生成器。
     """
     if len(args) == 0:
         yield res

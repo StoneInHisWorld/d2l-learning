@@ -2,6 +2,7 @@ import hashlib
 import os
 import tarfile
 import zipfile
+from functools import reduce
 
 import numpy as np
 import pandas as pd
@@ -387,6 +388,7 @@ def get_parameters():
 
 optimal_parameters = []
 min_ls = float('inf')
+reduce()
 for parameters in get_parameters():
     k, num_epochs, lr, weight_decay, batch_size, dropout_rate, activation, netType = parameters
     # pbar.set_description(f'超参数：1、k-折：{k}，2、迭代周期：{num_epochs}，3、学习率：{lr}，4、权重衰退：{weight_decay}，\n'
