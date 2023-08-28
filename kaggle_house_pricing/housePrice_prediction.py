@@ -182,7 +182,7 @@ def get_k_fold_data(k, i, X, y):
     :param y:
     :return:
     """
-    assert k > 1
+    assert k > 1, 'k折交叉验证需要k值大于1！'
     fold_size = X.shape[0] // k
     X_train, y_train = None, None
     for j in range(k):

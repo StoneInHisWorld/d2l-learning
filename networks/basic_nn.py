@@ -7,6 +7,7 @@ from tqdm import tqdm, trange
 
 from utils.accumulator import Accumulator
 from utils.data_related import single_argmax_accuracy
+from utils.datasets import DataSet
 from utils.history import History
 from utils.tools import init_wb
 
@@ -63,6 +64,7 @@ class BasicNN(nn.Sequential):
                         [metric[0] / metric[2], metric[1] / metric[2]]
                     )
                 else:
+                    pbar.set_description('validating...')
                     valid_acc, valid_l = self.test_(valid_iter, acc_fn, ls_fn)
                     history.add(
                         ['train_l', 'train_acc', 'valid_l', 'valid_acc'],
@@ -176,6 +178,44 @@ class BasicNN(nn.Sequential):
             )
         return history
 
+    @staticmethod
+    def get_k_fold_data(k, i, dataset: DataSet):
+        """
+        根据K、i、X、y获取训练集和验证集
+        :param k: 数据集拆分折数
+        :param i:
+        :param X:
+        :param y:
+        :return:
+        """
+        assert k > 1
+        fold_size = len(dataset) // k
+        X_train, y_train = None, None
+        for j in range(k):
+            idx = slice(j * fold_size, (j + 1) * fold_size)
+            X_part, y_part = X[idx, :], y[idx]
+            if j == i:
+                X_valid, y_valid = X_part, y_part
+            elif X_train is None:
+                X_train, y_train = X_part, y_part
+            else:
+                X_train = torch.cat([X_train, X_part], 0)
+                y_train = torch.cat([y_train, y_part], 0)
+        return X_train, y_train, X_valid, y_valid
+
+    def train_with_k_fold(self, k, X_train, y_train, num_epochs, learning_rate, weight_decay,
+           batch_size, dropout_rate, activation, netType):
+        train_l_sum, valid_l_sum = 0, 0
+        for i in range(k):
+            data = get_k_fold_data(k, i, X_train, y_train)
+            train_ls, valid_ls = train(net, *data, num_epochs, learning_rate,
+                                       weight_decay, batch_size)
+            train_l_sum += train_ls[-1]
+            valid_l_sum += valid_ls[-1]
+            print(f"\tfold{i} done")
+        return train_l_sum / k, valid_l_sum / k
+
+    @torch.no_grad()
     def test_(self, test_iter, acc_func=single_argmax_accuracy, loss: Callable = nn.L1Loss) \
             -> [float, float]:
         """
@@ -185,13 +225,26 @@ class BasicNN(nn.Sequential):
         :param loss: 计算损失所使用的函数
         :return: 测试准确率，测试损失
         """
-        with torch.no_grad():
-            self.eval()
-            for features, labels in test_iter:
-                preds = self(features)
-                test_acc = acc_func(preds, labels) / len(features)
-                test_ls = loss(preds, labels)
-                return test_acc, test_ls.item()
+        self.eval()
+        # with torch.no_grad():
+        #     for features, labels in test_iter:
+        #         preds = self(features)
+        #         test_acc = acc_func(preds, labels) / len(features)
+        #         test_ls = loss(preds, labels)
+        #         del preds
+        #         return test_acc, test_ls.item()
+        metric = Accumulator(3)
+        for features, labels in test_iter:
+            preds = self(features)
+            metric.add(loss(preds, labels), acc_func(preds, labels), len(features))
+        return metric[0] / metric[2], metric[1] / metric[2]
+
+    @torch.no_grad()
+    def predict_(self, feature_iter: Iterable) -> torch.Tensor:
+        ret = []
+        for feature in feature_iter:
+            ret.append(self(feature))
+        return torch.cat(ret, dim=0)
 
     @property
     def device(self):

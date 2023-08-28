@@ -14,11 +14,12 @@ import utils.kaggle_utils as kutils
 # 调参面板
 exp_no = 2
 random_seed = 42
+data_portion = 1.
 base_s = [2]
-epochs_es = [300]
-batch_sizes = [8, 16, 32, 64, 128]
+epochs_es = [10]
+batch_sizes = [128]
 loss_es = ['entro']
-lr_s = [1e2, 1e1, 1e0, 1e-1, 1e-2, 1e-3]
+lr_s = [1e-3]
 optim_str_s = ['adam']
 w_decay_s = [0.]
 
@@ -28,7 +29,7 @@ print('collecting data...')
 # 转移设备
 device = tools.try_gpu(0)
 # device = 'cpu'
-train_data = LeavesTrain('./classify-leaves', device=device, lazy=False, small_data=1)
+train_data = LeavesTrain('./classify-leaves', device=device, lazy=False, small_data=data_portion)
 test_data = LeavesTest('./classify-leaves', device=device)
 acc_func = dr.single_argmax_accuracy
 
@@ -44,7 +45,7 @@ for base, epochs, batch_size, loss, lr, optim_str, w_decay in permutation(
 ):
     start = time.time()
     train_iter = dr.to_loader(train_ds, batch_size, sampler=train_sampler)
-    valid_iter = dr.to_loader(train_ds, sampler=valid_sampler)
+    valid_iter = dr.to_loader(train_ds, len(valid_sampler) // 3, sampler=valid_sampler)
     dataset_name = LeavesTrain.__name__
 
     print('constructing network...')
@@ -58,16 +59,19 @@ for base, epochs, batch_size, loss, lr, optim_str, w_decay in permutation(
     # 构建网络
     optimizer = tools.get_optimizer(net, optim_str, lr, w_decay)
     loss = tools.get_loss(loss)
+    optimizer_name = optimizer.__class__.__name__
 
     print(f'training on {device}...')
     history = net.train_(
         train_iter, optimizer=optimizer, num_epochs=epochs, ls_fn=loss,
         acc_fn=acc_func, valid_iter=valid_iter
     )
+    del train_iter, optimizer, valid_iter
+
     print('plotting...')
     tools.plot_history(
         history, xlabel='num_epochs', ylabel=f'loss({loss})', mute=True,
-        title=f'dataset: {dataset_name} optimizer: {optimizer.__class__.__name__}\n'
+        title=f'dataset: {dataset_name} optimizer: {optimizer_name}\n'
               f'net: {net.__class__.__name__}',
         savefig_as=f'./imgs/base{base} batch_size{batch_size} lr{lr} random_seed{random_seed} '
                    f'epochs{epochs}.jpg'
@@ -85,6 +89,7 @@ for base, epochs, batch_size, loss, lr, optim_str, w_decay in permutation(
           f'train_l = {history["train_l"][-1]:.5f}')
     print(f'valid_acc = {history["valid_acc"][-1] * 100:.2f}%, '
           f'valid_l = {history["valid_l"][-1]:.5f}\n')
+    del history
 
     print('predicting...')
-    kutils.kaggle_predict(net, test_data.img_paths, test_data.imgs, dummies_column)
+    kutils.kaggle_predict(net, test_data.img_paths, test_data.imgs, dummies_column, split=3)
