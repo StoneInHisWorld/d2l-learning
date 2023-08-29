@@ -24,7 +24,7 @@ class BasicNN(nn.Sequential):
     def __str__(self):
         return '网络结构：\n' + super().__str__() + '\n所处设备：' + str(self.__device__)
 
-    def train_(self, data_iter, optimizer, num_epochs=10, ls_fn: nn.Module = nn.L1Loss(),
+    def train_(self, data_iter, optimizer, num_epochs: int = 10, ls_fn: nn.Module = nn.L1Loss(),
                acc_fn=single_argmax_accuracy, valid_iter=None) -> History:
         """
         神经网络训练函数。
@@ -36,7 +36,7 @@ class BasicNN(nn.Sequential):
         :param valid_iter: 验证数据供给迭代器
         :return: 训练数据记录`History`对象
         """
-        history = History('train_l', 'train_acc') if not valid_iter else \
+        history = History('train_l', 'train_acc') if valid_iter is None else \
             History('train_l', 'train_acc', 'valid_l', 'valid_acc')
         with tqdm(total=len(data_iter), unit='批', position=0,
                   desc=f'训练中...', mininterval=1) as pbar:
@@ -178,42 +178,17 @@ class BasicNN(nn.Sequential):
             )
         return history
 
-    @staticmethod
-    def get_k_fold_data(k, i, dataset: DataSet):
-        """
-        根据K、i、X、y获取训练集和验证集
-        :param k: 数据集拆分折数
-        :param i:
-        :param X:
-        :param y:
-        :return:
-        """
-        assert k > 1
-        fold_size = len(dataset) // k
-        X_train, y_train = None, None
-        for j in range(k):
-            idx = slice(j * fold_size, (j + 1) * fold_size)
-            X_part, y_part = X[idx, :], y[idx]
-            if j == i:
-                X_valid, y_valid = X_part, y_part
-            elif X_train is None:
-                X_train, y_train = X_part, y_part
-            else:
-                X_train = torch.cat([X_train, X_part], 0)
-                y_train = torch.cat([y_train, y_part], 0)
-        return X_train, y_train, X_valid, y_valid
-
-    def train_with_k_fold(self, k, X_train, y_train, num_epochs, learning_rate, weight_decay,
-           batch_size, dropout_rate, activation, netType):
-        train_l_sum, valid_l_sum = 0, 0
-        for i in range(k):
-            data = get_k_fold_data(k, i, X_train, y_train)
-            train_ls, valid_ls = train(net, *data, num_epochs, learning_rate,
-                                       weight_decay, batch_size)
-            train_l_sum += train_ls[-1]
-            valid_l_sum += valid_ls[-1]
-            print(f"\tfold{i} done")
-        return train_l_sum / k, valid_l_sum / k
+    def train_with_k_fold(self, train_loaders_iter, optimizer, num_epochs: int = 10,
+                          ls_fn: nn.Module = nn.L1Loss(), k = 10,
+                          acc_fn=single_argmax_accuracy) -> History:
+        k_fold_history = History('train_l', 'train_acc', 'valid_l', 'valid_acc')
+        with tqdm(range(k), position=0, leave=True, unit='fold') as pbar:
+            for train_iter, valid_iter in train_loaders_iter:
+                pbar.set_description(f'Training fold-{pbar.n}')
+                history = self.train_(train_iter, optimizer, num_epochs, ls_fn, acc_fn, valid_iter=valid_iter)
+                k_fold_history += history
+                pbar.update(1)
+        return k_fold_history
 
     @torch.no_grad()
     def test_(self, test_iter, acc_func=single_argmax_accuracy, loss: Callable = nn.L1Loss) \

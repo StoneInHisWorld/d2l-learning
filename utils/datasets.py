@@ -15,19 +15,30 @@ class DataSet(torch_dataset):
         """
         assert isinstance(features, Iterable) and isinstance(labels, Iterable)
         assert len(features) == len(labels), f'特征集长度{len(features)}与标签集长度{len(labels)}不等！'
-        self.__features__ = features
-        self.__labels__ = labels
+        self.__features = features
+        self.__labels = labels
         self.collate_fn = collate_fn
 
     def __getitem__(self, item):
-        return self.__features__[item], self.__labels__[item]
+        return self.__features[item], self.__labels[item]
 
     def __len__(self):
-        return len(self.__features__)
+        return len(self.__features)
 
     def to(self, device: torch.device) -> None:
-        self.__features__ = self.__features__.to(device)
-        self.__labels__ = self.__labels__.to(device)
+        self.__features = self.__features.to(device)
+        self.__labels = self.__labels.to(device)
+
+    def apply(self, features_calls: list[Callable[[torch.Tensor], torch.Tensor]] = None,
+              labels_calls: list[Callable[[torch.Tensor], torch.Tensor]] = None):
+        if features_calls is None:
+            features_calls = []
+        if labels_calls is None:
+            labels_calls = []
+        for call in features_calls:
+            self.__features = call(self.__features)
+        for call in labels_calls:
+            self.__labels = call(self.__labels)
 
     # def to_loader(self, batch_size: int = None, shuffle=True, collate_fn=None, **kwargs) -> DataLoader:
     #     """
@@ -52,11 +63,11 @@ class DataSet(torch_dataset):
 
     @property
     def feature_shape(self):
-        return self.__features__.shape
+        return self.__features.shape
 
     @property
     def label_shape(self):
-        return self.__labels__.shape
+        return self.__labels.shape
 
 
 class LazyDataSet(DataSet):

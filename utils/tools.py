@@ -1,7 +1,3 @@
-import random
-
-import PIL.Image
-import numpy as np
 import pandas as pd
 import torch
 from PIL import Image as IMAGE
@@ -9,7 +5,7 @@ from PIL.Image import Image
 from matplotlib import pyplot as plt
 from torch import cuda, nn as nn
 from torch.nn import init as init
-from typing import Tuple, Sized, Iterable
+from typing import Tuple
 
 optimizers = ['sgd', 'adam']
 loss_es = ['l1', 'entro', 'mse', 'huber']
@@ -141,12 +137,3 @@ def resize_img(image: Image, required_shape: Tuple[int, int], img_mode='L') -> I
     return new_image
 
 
-def data_slicer(data, data_portion=1., shuffle=True) -> np.ndarray:
-    assert 0 <= data_portion <= 1.0, '切分的数据集需为源数据集的子集！'
-    if isinstance(data, np.ndarray):
-        shuffle_fn = np.random.shuffle
-    else:
-        shuffle_fn = random.shuffle
-    if shuffle:
-        shuffle_fn(data)
-    return data[:int(data_portion * len(data))]

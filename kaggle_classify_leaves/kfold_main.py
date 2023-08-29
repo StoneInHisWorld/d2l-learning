@@ -1,7 +1,10 @@
+import random
 import time
 
+import numpy as np
 import torch
 
+import networks.common_layers
 import utils.data_related as dr
 import utils.tools as tools
 from leaves import LeavesTrain, LeavesTest
@@ -14,10 +17,12 @@ import utils.kaggle_utils as kutils
 # 调参面板
 exp_no = 2
 random_seed = 42
-data_portion = 1.
+data_portion = 1.0
+Net = AlexNet
+k_s = [10]
 base_s = [2]
-epochs_es = [20]
-batch_sizes = [128]
+epochs_es = [5]
+batch_sizes = [4, 8, 16, 32, 64, 128, 256]
 loss_es = ['entro']
 lr_s = [1e-3]
 optim_str_s = ['adam']
@@ -33,19 +38,39 @@ train_data = LeavesTrain('./classify-leaves', device=device, lazy=False, small_d
 test_data = LeavesTest('./classify-leaves', device=device)
 acc_func = dr.single_argmax_accuracy
 
+
+def my_reshape(data, part=4):
+    d_len = len(data)
+    p_len = d_len // part
+    indices = np.split(np.arange(d_len), (p_len, p_len * 2, p_len * 3))
+    for i in indices:
+        data[i] = networks.common_layers.Reshape(Net.required_shape)(data[i])
+
+
+features_preprocess = [
+    # torch.nn.functional.batch_norm,
+    # networks.common_layers.Reshape(Net.required_shape)
+    # my_reshape
+]
+labels_process = []
+
 print('preprocessing...')
 # 训练集封装，并生成训练集和验证集的sampler
 dummies_column = train_data.dummy
 train_ds = train_data.to_dataset()
-train_sampler, valid_sampler = dr.split_data(train_ds)
 del train_data
 
-for base, epochs, batch_size, loss, lr, optim_str, w_decay in permutation(
-        [], base_s, epochs_es, batch_sizes, loss_es, lr_s, optim_str_s, w_decay_s
+for k, base, epochs, batch_size, loss, lr, optim_str, w_decay in permutation(
+        [], k_s, base_s, epochs_es, batch_sizes, loss_es, lr_s, optim_str_s, w_decay_s
 ):
     start = time.time()
-    train_iter = dr.to_loader(train_ds, batch_size, sampler=train_sampler)
-    valid_iter = dr.to_loader(train_ds, len(valid_sampler) // 3, sampler=valid_sampler)
+    train_ds.apply(features_preprocess, labels_process)
+    sampler_iter = dr.k_fold_split(train_ds, k)
+    train_loaders = (
+        (dr.to_loader(train_ds, batch_size, sampler=train_sampler),
+         dr.to_loader(train_ds, len(valid_sampler) // 3, sampler=valid_sampler))
+        for train_sampler, valid_sampler in sampler_iter
+    )
     dataset_name = LeavesTrain.__name__
 
     print('constructing network...')
@@ -54,7 +79,7 @@ for base, epochs, batch_size, loss, lr, optim_str, w_decay in permutation(
     # TODO: 选择一个网络类型
     # net = VGG(in_channels, out_features, conv_arch=vgg.VGG_11, device=device)
     # net = LeNet(in_channels, out_features, device=device)
-    net = AlexNet(in_channels, out_features, device=device)
+    net = Net(in_channels, out_features, device=device)
 
     # 构建网络
     optimizer = tools.get_optimizer(net, optim_str, lr, w_decay)
@@ -62,11 +87,10 @@ for base, epochs, batch_size, loss, lr, optim_str, w_decay in permutation(
     optimizer_name = optimizer.__class__.__name__
 
     print(f'training on {device}...')
-    history = net.train_(
-        train_iter, optimizer=optimizer, num_epochs=epochs, ls_fn=loss,
-        acc_fn=acc_func, valid_iter=valid_iter
+    history = net.train_with_k_fold(
+        train_loaders, optimizer=optimizer, num_epochs=epochs, ls_fn=loss, acc_fn=acc_func
     )
-    del train_iter, optimizer, valid_iter
+    del train_loaders, optimizer
 
     print('plotting...')
     tools.plot_history(
@@ -79,11 +103,13 @@ for base, epochs, batch_size, loss, lr, optim_str, w_decay in permutation(
     time_span = time.strftime('%H:%M:%S', time.gmtime(time.time() - start))
     tools.write_log(
         './log/alexnet_log.csv',
-        net=net.__class__, epochs=epochs, batch_size=batch_size, loss=loss,
-        lr=lr, random_seed=random_seed,
+        net=net.__class__, exp_no=exp_no, epochs=epochs, batch_size=batch_size,
+        loss=loss, lr=lr, random_seed=random_seed,
         train_l=sum(history['train_l']) / len(history['train_l']),
         train_acc=sum(history['train_acc']) / len(history['train_acc']),
-        dataset=dataset_name, duration=time_span, exp_no=exp_no
+        valid_l=sum(history['valid_l']) / len(history['valid_l']),
+        valid_acc=sum(history['valid_acc']) / len(history['valid_acc']),
+        dataset=dataset_name, duration=time_span
     )
     print(f'train_acc = {history["train_acc"][-1] * 100:.2f}%, '
           f'train_l = {history["train_l"][-1]:.5f}')
@@ -92,4 +118,8 @@ for base, epochs, batch_size, loss, lr, optim_str, w_decay in permutation(
     del history
 
     print('predicting...')
-    kutils.kaggle_predict(net, test_data.img_paths, test_data.imgs, dummies_column, split=3)
+    ripe_fea = test_data.imgs
+    for call in features_preprocess:
+        ripe_fea = call(ripe_fea)
+    kutils.kaggle_predict(net, test_data.img_paths, ripe_fea, dummies_column, split=3)
+    del net

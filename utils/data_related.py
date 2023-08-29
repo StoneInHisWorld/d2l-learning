@@ -1,3 +1,4 @@
+import random
 from typing import Tuple, Iterable
 
 import numpy as np
@@ -162,7 +163,60 @@ def to_loader(dataset: DataSet | LazyDataSet, batch_size: int = None, sampler: I
             dataset, dataset.read_fn, batch_size, load_multiple=dataset.load_multiple, shuffle=shuffle,
             collate_fn=dataset.collate_fn, sampler=sampler, **kwargs
         )
-    elif type(dataset) is DataSet:
+    elif type(dataset) == DataSet:
         return DataLoader(
             dataset, batch_size, shuffle=shuffle, collate_fn=dataset.collate_fn, sampler=sampler, **kwargs
         )
+
+
+def k_fold_split(dataset: DataSet or LazyDataSet, k: int = 10, shuffle: bool = True):
+    """
+    根据K、i、X、y获取训练集和验证集
+    :param shuffle:
+    :param dataset:
+    :param k: 数据集拆分折数
+    :param i:
+    :param X:
+    :param y:
+    :return:
+    """
+    assert k > 1, f'k折验证需要k值大于1，而不是{k}'
+    # assert 0 <= i < k, f'i值需要介于[0, k)间，且为整数，输入的i值为{i}'
+    # fold_size = len(dataset) // k
+    # X_train, y_train = None, None
+    # for j in range(k):
+    #     idx = slice(j * fold_size, (j + 1) * fold_size)
+    #     X_part, y_part = X[idx, :], y[idx]
+    #     if j == i:
+    #         X_valid, y_valid = X_part, y_part
+    #     elif X_train is None:
+    #         X_train, y_train = X_part, y_part
+    #     else:
+    #         X_train = torch.cat([X_train, X_part], 0)
+    #         y_train = torch.cat([y_train, y_part], 0)
+    # return X_train, y_train, X_valid, y_valid
+    data_len = len(dataset)
+    fold_size = len(dataset) // k
+    total_ranger = np.random.randint(0, data_len, (data_len, )) if shuffle else np.arange(data_len)
+    for i in range(k):
+        train_range1, valid_range, train_range2 = np.split(
+            total_ranger,
+            (i * fold_size, min((i + 1) * fold_size, data_len))
+        )
+        train_range = np.concatenate((train_range1, train_range2), axis=0)
+        del train_range1, train_range2
+        yield [
+            DataLoader(ranger, shuffle=True, collate_fn=lambda d: d[0])
+            for ranger in (train_range, valid_range)
+        ]
+
+
+def data_slicer(data, data_portion=1., shuffle=True) -> np.ndarray:
+    assert 0 <= data_portion <= 1.0, '切分的数据集需为源数据集的子集！'
+    if isinstance(data, np.ndarray):
+        shuffle_fn = np.random.shuffle
+    else:
+        shuffle_fn = random.shuffle
+    if shuffle:
+        shuffle_fn(data)
+    return data[:int(data_portion * len(data))]
