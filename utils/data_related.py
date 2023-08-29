@@ -54,7 +54,7 @@ def single_argmax_accuracy(Y_HAT: torch.Tensor, Y: torch.Tensor) -> float:
 #         (test_fea, test_labels)
 
 
-def split_data(dataset: DataSet | LazyDataSet, train=0.8, test=0.2, valid=.0):
+def split_data(dataset: DataSet or LazyDataSet, train=0.8, test=0.2, valid=.0):
     """
     分割数据集为训练集、测试集、验证集
     :param dataset: 分割数据集
@@ -80,7 +80,6 @@ def split_data(dataset: DataSet | LazyDataSet, train=0.8, test=0.2, valid=.0):
     ]
 
 
-# def read_img(path: str, required_shape: Tuple[int, int] = None, mode: str = 'L') -> torch.Tensor:
 def read_img(path: str, required_shape: Tuple[int, int] = None, mode: str = 'L',
              requires_id: bool = False) -> np.ndarray:
     """
@@ -96,7 +95,7 @@ def read_img(path: str, required_shape: Tuple[int, int] = None, mode: str = 'L',
     img = Image.open(path).convert(mode)
     # 若有要求shape，则进行resize，边缘填充黑条
     if required_shape:
-        img = tools.resize_img(img, required_shape)
+        img = tools.resize_img(img, required_shape, mode)
     img = np.array(img)
     # 复原出通道。1表示样本数量维
     if mode == 'L':
@@ -143,7 +142,7 @@ class LazyDataLoader:
         return len(self.__index_loader) * self.__multiple
 
 
-def to_loader(dataset: DataSet | LazyDataSet, batch_size: int = None, sampler: Iterable = None, shuffle=True,
+def to_loader(dataset: DataSet or LazyDataSet, batch_size: int = None, sampler: Iterable = None, shuffle=True,
               **kwargs) -> DataLoader or LazyDataLoader:
     """
     根据数据集类型转化为数据集加载器

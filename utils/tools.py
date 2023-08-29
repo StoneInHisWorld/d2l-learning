@@ -1,3 +1,5 @@
+import random
+
 import pandas as pd
 import torch
 from PIL import Image as IMAGE
@@ -111,29 +113,54 @@ def init_wb(m):
         # init.zeros_(m.bias)
 
 
+# def resize_img(image: Image, required_shape: Tuple[int, int], img_mode='L') -> Image:
+#     # ------------------------------#
+#     #   获得图像的高宽与目标高宽
+#     #   code from: Bubbliiiing
+#     # ------------------------------#
+#     iw, ih = image.size
+#     h, w = required_shape
+#
+#     # 长边放缩比例
+#     scale = min(w / iw, h / ih)
+#     # 计算新图片shape
+#     new_w = int(iw * scale)
+#     new_h = int(ih * scale)
+#     # 计算图片缺失shape
+#     dx = (w - new_w) // 2
+#     dy = (h - new_h) // 2
+#     # ---------------------------------#
+#     #   将图像多余的部分加上黑条
+#     # ---------------------------------#
+#     image = image.resize((new_w, new_h), IMAGE.BICUBIC)
+#     new_image = IMAGE.new(img_mode, (w, h), 0)
+#     new_image.paste(image, (dx, dy))
+#
+#     return new_image
+
 def resize_img(image: Image, required_shape: Tuple[int, int], img_mode='L') -> Image:
-    # ------------------------------#
-    #   获得图像的高宽与目标高宽
-    #   code from: Bubbliiiing
-    # ------------------------------#
-    iw, ih = image.size
+    # 实现将图片进行随机裁剪以达到目标shape的功能
+    # dl = data.shape[0]
+    ih, iw = image.size
     h, w = required_shape
 
     # 长边放缩比例
-    scale = min(w / iw, h / ih)
+    scale = max(w / iw, h / ih)
     # 计算新图片shape
     new_w = int(iw * scale)
     new_h = int(ih * scale)
     # 计算图片缺失shape
-    dx = (w - new_w) // 2
-    dy = (h - new_h) // 2
-    # ---------------------------------#
-    #   将图像多余的部分加上黑条
-    # ---------------------------------#
-    image = image.resize((new_w, new_h), IMAGE.BICUBIC)
-    new_image = IMAGE.new(img_mode, (w, h), 0)
-    new_image.paste(image, (dx, dy))
-
-    return new_image
-
-
+    dw = w - new_w
+    dh = h - new_h
+    # 等比例缩放数据
+    image = image.resize((new_h, new_w), IMAGE.BICUBIC)
+    # 若需求图片大小较大，则进行填充
+    if dw > 0 or dh > 0:
+        back_ground = IMAGE.new(img_mode, (w, h), 0)
+        back_ground.paste(image)
+    # 若需求图片大小较小，则随机取部分
+    if dw < 0 or dh < 0:
+        i_h = random.randint(0, -dh) if dh < 0 else 0
+        i_w = random.randint(0, -dw) if dw < 0 else 0
+        image.crop((i_h, i_w))
+    return image

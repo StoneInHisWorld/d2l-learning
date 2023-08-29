@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Iterable, Callable
+from typing import Iterable, Callable, List
 
 import torch
 from torch.utils.data import Dataset as torch_dataset, DataLoader
@@ -29,8 +29,8 @@ class DataSet(torch_dataset):
         self.__features = self.__features.to(device)
         self.__labels = self.__labels.to(device)
 
-    def apply(self, features_calls: list[Callable[[torch.Tensor], torch.Tensor]] = None,
-              labels_calls: list[Callable[[torch.Tensor], torch.Tensor]] = None):
+    def apply(self, features_calls: List[Callable[[torch.Tensor], torch.Tensor]] = None,
+              labels_calls: List[Callable[[torch.Tensor], torch.Tensor]] = None):
         if features_calls is None:
             features_calls = []
         if labels_calls is None:

@@ -34,8 +34,11 @@ print('collecting data...')
 # 转移设备
 device = tools.try_gpu(0)
 # device = 'cpu'
-train_data = LeavesTrain('./classify-leaves', device=device, lazy=False, small_data=data_portion)
-test_data = LeavesTest('./classify-leaves', device=device)
+train_data = LeavesTrain(
+    './classify-leaves', device=device, lazy=False, small_data=data_portion,
+    required_shape=Net.required_shape
+)
+test_data = LeavesTest('./classify-leaves', device=device, required_shape=Net.required_shape)
 acc_func = dr.single_argmax_accuracy
 
 

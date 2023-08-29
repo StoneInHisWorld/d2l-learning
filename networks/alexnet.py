@@ -11,7 +11,7 @@ class AlexNet(BasicNN):
 
     def __init__(self, in_channels, out_features, device) -> None:
         layers = [
-            cl.Reshape(AlexNet.required_shape),
+            # cl.Reshape(AlexNet.required_shape),
             nn.BatchNorm2d(in_channels),
             nn.Conv2d(in_channels, 96, kernel_size=11, stride=4, padding=1), nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2),
