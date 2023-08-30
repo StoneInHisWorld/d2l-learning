@@ -114,6 +114,17 @@ class LazyDataLoader:
     def __init__(self, index_dataset: DataSet, read_fn, batch_size: int = None, load_multiple: int = 1,
                  shuffle=True, collate_fn=None, sampler=None,
                  **kwargs):
+        """
+        数据懒加载器。对懒加载数据集进行读取，每次供给懒加载数据集中索引对应的数据内容。
+        :param index_dataset: 懒加载数据集
+        :param read_fn: 读取方法
+        :param batch_size: 批量大小
+        :param load_multiple: 每次加载数量
+        :param shuffle: 是否进行数据打乱
+        :param collate_fn: 数据校对方法
+        :param sampler: 数据抽取器
+        :param kwargs: DataLoader()关键字参数
+        """
         self.__batch_size = batch_size
         self.__multiple = load_multiple
         self.__shuffle = shuffle
@@ -122,15 +133,11 @@ class LazyDataLoader:
         self.__sampler = sampler
         self.__kwargs = kwargs
 
-        # self.__index_loader__ = index_dataset.to_loader(batch_size * load_multiple, shuffle)
         self.__index_loader = to_loader(index_dataset, batch_size * load_multiple, shuffle=shuffle)
         pass
 
     def __iter__(self):
         for index, label in self.__index_loader:
-            # batch_loader = DataSet(self.__read_fn(index), label).to_loader(
-            #     self.__batch_size, self.__shuffle, self.__collate_fn, **self.__kwargs
-            # )
             batch_loader = to_loader(
                 DataSet(self.__read_fn(index), label),
                 self.__batch_size, self.__sampler, self.__shuffle, **self.__kwargs
@@ -170,30 +177,13 @@ def to_loader(dataset: DataSet or LazyDataSet, batch_size: int = None, sampler: 
 
 def k_fold_split(dataset: DataSet or LazyDataSet, k: int = 10, shuffle: bool = True):
     """
-    根据K、i、X、y获取训练集和验证集
-    :param shuffle:
-    :param dataset:
+    对数据集进行k折验证数据集切分。
+    :param shuffle: 是否打乱数据集
+    :param dataset: 源数据集
     :param k: 数据集拆分折数
-    :param i:
-    :param X:
-    :param y:
-    :return:
+    :return: DataLoader生成器，每次生成（训练集下标供给器，验证集下标生成器）
     """
     assert k > 1, f'k折验证需要k值大于1，而不是{k}'
-    # assert 0 <= i < k, f'i值需要介于[0, k)间，且为整数，输入的i值为{i}'
-    # fold_size = len(dataset) // k
-    # X_train, y_train = None, None
-    # for j in range(k):
-    #     idx = slice(j * fold_size, (j + 1) * fold_size)
-    #     X_part, y_part = X[idx, :], y[idx]
-    #     if j == i:
-    #         X_valid, y_valid = X_part, y_part
-    #     elif X_train is None:
-    #         X_train, y_train = X_part, y_part
-    #     else:
-    #         X_train = torch.cat([X_train, X_part], 0)
-    #         y_train = torch.cat([y_train, y_part], 0)
-    # return X_train, y_train, X_valid, y_valid
     data_len = len(dataset)
     fold_size = len(dataset) // k
     total_ranger = np.random.randint(0, data_len, (data_len, )) if shuffle else np.arange(data_len)
@@ -219,3 +209,9 @@ def data_slicer(data, data_portion=1., shuffle=True) -> np.ndarray:
     if shuffle:
         shuffle_fn(data)
     return data[:int(data_portion * len(data))]
+
+
+def normalize(data: torch.Tensor) -> torch.Tensor:
+    # mean = data.mean()
+    # std = data.std()
+    return torch.nn.functional.normalize(data)

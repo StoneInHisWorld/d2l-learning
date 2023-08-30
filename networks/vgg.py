@@ -17,7 +17,7 @@ class VGG(BasicNN):
                  conv_arch: Tuple[int, int] = VGG_11,
                  device: torch.device = 'cpu') -> None:
         conv_blks = [
-            cl.Reshape(VGG.required_shape),
+            # cl.Reshape(VGG.required_shape),
             nn.BatchNorm2d(in_channels)
         ]
         for (num_convs, out_channels) in conv_arch:
@@ -29,9 +29,9 @@ class VGG(BasicNN):
         conv_blks += [
             nn.Flatten(),
             # nn.BatchNorm1d(in_channels * 7 * 7),
-            nn.Linear(in_channels * 7 * 7, 4096), nn.ReLU(),
+            nn.Linear(in_channels * 7 * 7, 4096), nn.ReLU(inplace=True),
             nn.Dropout(0.5),
-            nn.Linear(4096, 4096), nn.ReLU(),
+            nn.Linear(4096, 4096), nn.ReLU(inplace=True),
             nn.Dropout(0.5),
             nn.Linear(4096, out_feature),
             nn.Softmax(dim=1)

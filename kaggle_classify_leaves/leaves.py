@@ -101,6 +101,12 @@ class LeavesTrain:
             return LazyDataSet(self.__features, self.__labels, load_multiple, read_fn=self.read_fn)
         return DataSet(self.__features, self.__labels)
 
+    def read_fn(self, index):
+        X = []
+        for path in index:
+            X.append(read_img(path, required_shape=self.__required_shape, mode='RGB'))
+        return np.array(X)
+
     @property
     def dummy(self) -> pd.Index:
         return self.__dummy_columns__
@@ -113,11 +119,12 @@ class LeavesTrain:
     def collate_fn(data: list):
         return data
 
-    def read_fn(self, index):
-        X = []
-        for path in index:
-            X.append(read_img(path, required_shape=self.__required_shape, mode='RGB'))
-        return np.array(X)
+    @staticmethod
+    def features_preprocess(data):
+        mean = data.mean(dim=0, keepdim=True)
+        std = data.std(dim=0, keepdim=True)
+        numerator = data - mean
+        return numerator / std
 
 
 class LeavesTest:

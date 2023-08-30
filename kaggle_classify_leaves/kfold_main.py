@@ -1,18 +1,13 @@
-import random
 import time
 
-import numpy as np
 import torch
 
-import networks.common_layers
 import utils.data_related as dr
+import utils.kaggle_utils as kutils
 import utils.tools as tools
 from leaves import LeavesTrain, LeavesTest
 from networks.alexnet import AlexNet
-from networks.lenet import LeNet
-from utils.datasets import DataSet
 from utils.tools import permutation
-import utils.kaggle_utils as kutils
 
 # 调参面板
 exp_no = 2
@@ -21,8 +16,8 @@ data_portion = 1.0
 Net = AlexNet
 k_s = [10]
 base_s = [2]
-epochs_es = [5]
-batch_sizes = [4, 8, 16, 32, 64, 128, 256]
+epochs_es = [3]
+batch_sizes = [64, 128, 256, 512]
 loss_es = ['entro']
 lr_s = [1e-3]
 optim_str_s = ['adam']
@@ -41,17 +36,8 @@ train_data = LeavesTrain(
 test_data = LeavesTest('./classify-leaves', device=device, required_shape=Net.required_shape)
 acc_func = dr.single_argmax_accuracy
 
-
-def my_reshape(data, part=4):
-    d_len = len(data)
-    p_len = d_len // part
-    indices = np.split(np.arange(d_len), (p_len, p_len * 2, p_len * 3))
-    for i in indices:
-        data[i] = networks.common_layers.Reshape(Net.required_shape)(data[i])
-
-
 features_preprocess = [
-    # torch.nn.functional.batch_norm,
+    # LeavesTrain.features_preprocess
     # networks.common_layers.Reshape(Net.required_shape)
     # my_reshape
 ]
@@ -63,7 +49,7 @@ dummies_column = train_data.dummy
 train_ds = train_data.to_dataset()
 del train_data
 
-for k, base, epochs, batch_size, loss, lr, optim_str, w_decay in permutation(
+for k, base, epochs, batch_size, ls_fn, lr, optim_str, w_decay in permutation(
         [], k_s, base_s, epochs_es, batch_sizes, loss_es, lr_s, optim_str_s, w_decay_s
 ):
     start = time.time()
@@ -80,24 +66,23 @@ for k, base, epochs, batch_size, loss, lr, optim_str, w_decay in permutation(
     in_channels = LeavesTrain.img_channels
     out_features = train_ds.label_shape[1]
     # TODO: 选择一个网络类型
-    # net = VGG(in_channels, out_features, conv_arch=vgg.VGG_11, device=device)
-    # net = LeNet(in_channels, out_features, device=device)
     net = Net(in_channels, out_features, device=device)
 
     # 构建网络
     optimizer = tools.get_optimizer(net, optim_str, lr, w_decay)
-    loss = tools.get_loss(loss)
+    ls_fn = tools.get_loss(ls_fn)
     optimizer_name = optimizer.__class__.__name__
 
     print(f'training on {device}...')
     history = net.train_with_k_fold(
-        train_loaders, optimizer=optimizer, num_epochs=epochs, ls_fn=loss, acc_fn=acc_func
+        train_loaders, optimizer=optimizer, num_epochs=epochs, ls_fn=ls_fn, acc_fn=acc_func
     )
     del train_loaders, optimizer
 
     print('plotting...')
     tools.plot_history(
-        history, xlabel='num_epochs', ylabel=f'loss({loss})', mute=True,
+        history, xlabel='num_epochs', ylabel=f'loss({ls_fn.__class__.__name__})',
+        mute=True,
         title=f'dataset: {dataset_name} optimizer: {optimizer_name}\n'
               f'net: {net.__class__.__name__}',
         savefig_as=f'./imgs/base{base} batch_size{batch_size} lr{lr} random_seed{random_seed} '
@@ -107,7 +92,7 @@ for k, base, epochs, batch_size, loss, lr, optim_str, w_decay in permutation(
     tools.write_log(
         './log/alexnet_log.csv',
         net=net.__class__, exp_no=exp_no, epochs=epochs, batch_size=batch_size,
-        loss=loss, lr=lr, random_seed=random_seed,
+        loss=ls_fn, lr=lr, random_seed=random_seed,
         train_l=sum(history['train_l']) / len(history['train_l']),
         train_acc=sum(history['train_acc']) / len(history['train_acc']),
         valid_l=sum(history['valid_l']) / len(history['valid_l']),

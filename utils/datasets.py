@@ -31,6 +31,12 @@ class DataSet(torch_dataset):
 
     def apply(self, features_calls: List[Callable[[torch.Tensor], torch.Tensor]] = None,
               labels_calls: List[Callable[[torch.Tensor], torch.Tensor]] = None):
+        """
+        对数据调用某种方法
+        :param features_calls: 需要对特征集调用的方法列表
+        :param labels_calls: 需要对标签集调用的方法列表
+        :return: None
+        """
         if features_calls is None:
             features_calls = []
         if labels_calls is None:
