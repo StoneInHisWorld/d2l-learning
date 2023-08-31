@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 from torch.nn import Module
 
@@ -9,7 +10,8 @@ class AlexNet(BasicNN):
 
     required_shape = (224, 224)
 
-    def __init__(self, in_channels, out_features, device) -> None:
+    def __init__(self, in_channels, out_features, init_meth: str = 'xavier',
+                 device: torch.device = torch.device('cpu')) -> None:
         layers = [
             # cl.Reshape(AlexNet.required_shape),
             nn.BatchNorm2d(in_channels),
@@ -26,4 +28,4 @@ class AlexNet(BasicNN):
             nn.Linear(4096, out_features),
             nn.Softmax(dim=1)
         ]
-        super().__init__(device, *layers)
+        super().__init__(device, init_meth, *layers)

@@ -11,6 +11,7 @@ from typing import Tuple
 
 optimizers = ['sgd', 'adam']
 loss_es = ['l1', 'entro', 'mse', 'huber']
+init_funcs = ['normal', 'xavier', 'zero']
 
 
 def write_log(path: str, **kwargs):
@@ -105,13 +106,35 @@ def get_loss(loss_str: str = 'mse'):
         return nn.HuberLoss()
 
 
-def init_wb(m):
-    if type(m) == nn.Linear or type(m) == nn.Conv2d:
-        init.xavier_uniform_(m.weight)
-        init.zeros_(m.bias)
-        # init.uniform_(m.weight)
-        # init.zeros_(m.bias)
+# def init_wb(m):
+#     if type(m) == nn.Linear or type(m) == nn.Conv2d:
+#         init.xavier_uniform_(m.weight)
+#         init.zeros_(m.bias)
+#         # init.uniform_(m.weight)
+#         # init.zeros_(m.bias)
 
+
+def init_wb(func_str: str = 'xavier'):
+    """
+    返回初始化权重、偏移参数的函数。
+    :param func_str: 指定初始化方法的字符串
+    :return: 包装好可直接调用的初始化函数
+    """
+    assert func_str in init_funcs, f'不支持的初始化方式{func_str}, 当前支持的初始化方式包括{init_funcs}'
+    if func_str == 'normal':
+        w_init = lambda m: nn.init.normal_(m.weight, 0, 1)
+        b_init = lambda m: nn.init.normal_(m.bias, 0, 1)
+    elif func_str == 'xavier':
+        w_init, b_init = init.xavier_uniform_, init.zeros_
+    else:
+        w_init, b_init = init.zeros_, init.zeros_
+
+    def _init(m: nn.Module) -> None:
+        if type(m) == nn.Linear or type(m) == nn.Conv2d:
+            w_init(m)
+            b_init(m)
+
+    return _init
 
 # def resize_img(image: Image, required_shape: Tuple[int, int], img_mode='L') -> Image:
 #     # ------------------------------#

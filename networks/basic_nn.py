@@ -1,4 +1,4 @@
-from typing import Iterable, Sized, Any, Callable
+from typing import Iterable, Callable
 
 import torch
 import torch.nn as nn
@@ -7,22 +7,54 @@ from tqdm import tqdm, trange
 
 from utils.accumulator import Accumulator
 from utils.data_related import single_argmax_accuracy
-from utils.datasets import DataSet
 from utils.history import History
 from utils.tools import init_wb
+
+
+# init_funcs = ['normal', 'xavier', 'zero']
 
 
 class BasicNN(nn.Sequential):
     required_shape = (-1,)
 
-    def __init__(self, device, *args: Module) -> None:
-        super().__init__(*args)
-        self.apply(init_wb)
-        self.apply(lambda m: m.to(device))
-        self.__device__ = device
+    def __init__(self, device: torch.device = torch.device('cpu'), init_meth: str = 'xavier',
+                 with_checkpoint: bool = True, *args: Module) -> None:
 
-    def __str__(self):
-        return '网络结构：\n' + super().__str__() + '\n所处设备：' + str(self.__device__)
+        super().__init__(*args)
+        self.apply(init_wb(init_meth))
+        # self.__init_wb(init_meth)
+        self.apply(lambda m: m.to(device))
+        self.__device = device
+
+    # def __init_wb(self, func_str):
+    #     assert func_str in init_funcs, f'不支持的初始化方式{func_str}, 当前支持的初始化方式包括{init_funcs}'
+    #     if func_str == 'normal':
+    #         self.apply(
+    #             lambda m: nn.init.normal_(m.weight, 0, 1)
+    #             if type(m) == nn.Linear or type(m) == nn.Conv2d else m
+    #         )
+    #         self.apply(
+    #             lambda m: nn.init.normal_(m.bias, 0, 1)
+    #             if type(m) == nn.Linear or type(m) == nn.Conv2d else m
+    #         )
+    #     if func_str == 'xavier':
+    #         self.apply(
+    #             lambda m: nn.init.xavier_uniform_(m.weight)
+    #             if type(m) == nn.Linear or type(m) == nn.Conv2d else m
+    #         )
+    #         self.apply(
+    #             lambda m: nn.init.zeros_(m.bias)
+    #             if type(m) == nn.Linear or type(m) == nn.Conv2d else m
+    #         )
+    #     if func_str == 'zero':
+    #         self.apply(
+    #             lambda m: nn.init.zeros_(m.weight)
+    #             if type(m) == nn.Linear or type(m) == nn.Conv2d else m
+    #         )
+    #         self.apply(
+    #             lambda m: nn.init.zeros_(m.bias)
+    #             if type(m) == nn.Linear or type(m) == nn.Conv2d else m
+    #         )
 
     def train_(self, data_iter, optimizer, num_epochs: int = 10, ls_fn: nn.Module = nn.L1Loss(),
                acc_fn=single_argmax_accuracy, valid_iter=None) -> History:
@@ -73,13 +105,13 @@ class BasicNN(nn.Sequential):
             pbar.close()
         return history
 
-    @staticmethod
-    def save_grad(name):
-        # 返回hook函数
-        def hook(grad):
-            print(f'name={name}, grad={grad}')
-
-        return hook
+    # @staticmethod
+    # def save_grad(name):
+    #     # 返回hook函数
+    #     def hook(grad):
+    #         print(f'name={name}, grad={grad}')
+    #
+    #     return hook
 
     hook_mute = False
 
@@ -215,12 +247,19 @@ class BasicNN(nn.Sequential):
         return metric[0] / metric[2], metric[1] / metric[2]
 
     @torch.no_grad()
-    def predict_(self, feature_iter: Iterable) -> torch.Tensor:
+    def predict_(self, feature_iter: Iterable,
+                 unwrap_fn: Callable[[torch.Tensor], torch.Tensor] = None) -> torch.Tensor:
         ret = []
         for feature in feature_iter:
             ret.append(self(feature))
-        return torch.cat(ret, dim=0)
+        ret = torch.cat(ret, dim=0)
+        if unwrap_fn is not None:
+            ret = unwrap_fn(ret)
+        return ret
 
     @property
     def device(self):
-        return self.__device__
+        return self.__device
+
+    def __str__(self):
+        return '网络结构：\n' + super().__str__() + '\n所处设备：' + str(self.__device)

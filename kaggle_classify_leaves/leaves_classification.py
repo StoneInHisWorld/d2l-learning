@@ -14,7 +14,7 @@ import utils.kaggle_utils as kutils
 # 调参面板
 exp_no = 2
 random_seed = 42
-data_portion = 1.
+data_portion = 0.1
 base_s = [2]
 epochs_es = [20]
 batch_sizes = [128]
@@ -27,8 +27,8 @@ torch.random.manual_seed(random_seed)
 
 print('collecting data...')
 # 转移设备
-device = tools.try_gpu(0)
-# device = 'cpu'
+# device = tools.try_gpu(0)
+device = torch.device('cpu')
 train_data = LeavesTrain('./classify-leaves', device=device, lazy=False, small_data=data_portion)
 test_data = LeavesTest('./classify-leaves', device=device)
 acc_func = dr.single_argmax_accuracy
