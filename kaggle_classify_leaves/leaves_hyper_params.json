@@ -1,0 +1,26 @@
+{
+	"k_s": [
+		10
+	],
+	"base_s": [
+		2
+	],
+	"epochs_es": [
+		3
+	],
+	"batch_sizes": [
+		512
+	],
+	"ls_fns": [
+		"entro"
+	],
+	"lr_s": [
+		0.001
+	],
+	"optim_str_s": [
+		"adam"
+	],
+	"w_decay_s": [
+		0.0
+	]
+}
