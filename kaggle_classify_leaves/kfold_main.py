@@ -1,34 +1,49 @@
+import json
 import time
 
 import torch
 
 import utils.data_related as dr
-import utils.kaggle_utils as kutils
 import utils.tools as tools
 from leaves import LeavesTrain, LeavesTest
-from networks.alexnet import AlexNet
+from networks.nets.alexnet import AlexNet
 from utils.tools import permutation
+import kaggle_utils as kutils
 
 # 调参面板
-exp_no = 2
-random_seed = 42
-data_portion = 1.0
+# exp_no = 2
+# random_seed = 42
+# data_portion = 1.
 Net = AlexNet
 k_s = [10]
 base_s = [2]
 epochs_es = [3]
 batch_sizes = [512]
-loss_es = ['entro']
+ls_fns = ['entro']
 lr_s = [1e-3]
 optim_str_s = ['adam']
 w_decay_s = [0.]
 
+json_str = json.dumps({
+    "k_s": k_s,
+    "base_s": base_s,
+    'epochs_es': epochs_es,
+    'batch_sizes': batch_sizes,
+    'ls_fns': ls_fns,
+    "lr_s": lr_s,
+    'optim_str_s': optim_str_s,
+    'w_decay_s': w_decay_s
+}, indent='\t', allow_nan=True)
+with open('./leaves_hyper_params.json', mode='w', encoding='utf-8') as f:
+    f.write(json_str)
+with open('../settings.json', 'r') as config:
+    exp_no, data_portion, random_seed, _, _, device = json.load(config).values()
+
 torch.random.manual_seed(random_seed)
 
 print('collecting data...')
+Net = AlexNet
 # 转移设备
-device = tools.try_gpu(0)
-# device = 'cpu'
 train_data = LeavesTrain(
     './classify-leaves', device=device, lazy=False, small_data=data_portion,
     required_shape=Net.required_shape
@@ -36,22 +51,26 @@ train_data = LeavesTrain(
 test_data = LeavesTest('./classify-leaves', device=device, required_shape=Net.required_shape)
 acc_func = dr.single_argmax_accuracy
 
+print('preprocessing...')
 features_preprocess = [
     # LeavesTrain.features_preprocess
     # networks.common_layers.Reshape(Net.required_shape)
     # my_reshape
 ]
 labels_process = []
-
-print('preprocessing...')
+print(torch.cuda.memory_summary())
 # 训练集封装，并生成训练集和验证集的sampler
 dummies_column = train_data.dummy
 train_ds = train_data.to_dataset()
 del train_data
 
-for k, base, epochs, batch_size, ls_fn, lr, optim_str, w_decay in permutation(
-        [], k_s, base_s, epochs_es, batch_sizes, loss_es, lr_s, optim_str_s, w_decay_s
-):
+with open('./leaves_hyper_params.json', 'r', encoding='utf-8') as config:
+    args = json.load(config).values()
+
+for k, base, epochs, batch_size, ls_fn, lr, optim_str, w_decay in permutation([], *args):
+    with open('../settings.json', 'r') as config:
+        _, _, _, pic_mute, print_net, device = json.load(config).values()
+        train_ds.to(device)
     start = time.time()
     train_ds.apply(features_preprocess, labels_process)
     sampler_iter = dr.k_fold_split(train_ds, k)
@@ -66,7 +85,7 @@ for k, base, epochs, batch_size, ls_fn, lr, optim_str, w_decay in permutation(
     in_channels = LeavesTrain.img_channels
     out_features = train_ds.label_shape[1]
     # TODO: 选择一个网络类型
-    net = Net(in_channels, out_features, device=device)
+    net = Net(in_channels, out_features, device=device, with_checkpoint=True)
 
     # 构建网络
     optimizer = tools.get_optimizer(net, optim_str, lr, w_decay)

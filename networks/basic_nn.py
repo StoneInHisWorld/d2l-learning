@@ -20,10 +20,14 @@ class BasicNN(nn.Sequential):
     required_shape = (-1,)
 
     def __init__(self, device: torch.device = torch.device('cpu'), init_meth: str = 'xavier',
-                 with_checkpoint: bool = True, *args: Module) -> None:
-        if with_checkpoint:
-            warnings.warn('使用“检查点机制”虽然会减少前向传播的内存使用，但是会大大增加训练计算量！')
-            self.__checkpoint = with_checkpoint
+                 with_checkpoint: bool = False, *args: Module) -> None:
+        """
+        基本神经网络。提供神经网络的基本功能，包括权重初始化，训练以及测试。
+        :param device: 本网络所处设备
+        :param init_meth: 网络初始化方法
+        :param with_checkpoint: 是否使用检查点机制
+        :param args: 输入网络的模型
+        """
         super().__init__(*args)
         self.apply(init_wb(init_meth))
         # self.__init_wb(init_meth)
@@ -32,6 +36,10 @@ class BasicNN(nn.Sequential):
         self.__device = device
         self.__last_backward_data = {}
         self.__last_forward_output = {}
+        if with_checkpoint:
+            warnings.warn('使用“检查点机制”虽然会减少前向传播的内存使用，但是会大大增加训练计算量！')
+        self.__checkpoint = with_checkpoint
+
     # def __init_wb(self, func_str):
     #     assert func_str in init_funcs, f'不支持的初始化方式{func_str}, 当前支持的初始化方式包括{init_funcs}'
     #     if func_str == 'normal':
@@ -201,7 +209,7 @@ class BasicNN(nn.Sequential):
         return history
 
     def train_with_k_fold(self, train_loaders_iter, optimizer, num_epochs: int = 10,
-                          ls_fn: nn.Module = nn.L1Loss(), k = 10,
+                          ls_fn: nn.Module = nn.L1Loss(), k: int = 10,
                           acc_fn=single_argmax_accuracy) -> History:
         """
         使用k折验证法进行模型训练
@@ -264,10 +272,13 @@ class BasicNN(nn.Sequential):
     def __str__(self):
         return '网络结构：\n' + super().__str__() + '\n所处设备：' + str(self.__device)
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, x):
         if self.__checkpoint:
-            return checkpoint.checkpoint_sequential(
-                self, len(list(self.named_children())), *args, **kwargs
-            )
+            _check_first = False
+            for m in self:
+                can_check = _check_first and type(m) != nn.Dropout and type(m) != nn.BatchNorm2d
+                x = checkpoint.checkpoint(m, x) if can_check else m(x)
+                _check_first = True
+            return x
         else:
-            return super(BasicNN, self).__call__(*args, **kwargs)
+            return super(BasicNN, self).__call__(x)

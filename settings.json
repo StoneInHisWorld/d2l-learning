@@ -1,0 +1,8 @@
+{
+	"exp_no": 3,
+	"data_portion": 1,
+	"random_seed": 42,
+	"pic_mute": true,
+	"print_net": false,
+	"device": "cuda"
+}

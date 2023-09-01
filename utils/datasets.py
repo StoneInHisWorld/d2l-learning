@@ -64,6 +64,10 @@ class DataSet(torch_dataset):
     #         self, batch_size, shuffle=shuffle, collate_fn=collate_fn, **kwargs
     #     )
 
+    def to(self, device: torch.device) -> None:
+        self.__features = self.__features.to(device)
+        self.__labels = self.__labels.to(device)
+
     def get_subset(self, indices: Iterable):
         return DataSet(self[indices][0], self[indices][1])
 

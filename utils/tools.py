@@ -131,8 +131,8 @@ def init_wb(func_str: str = 'xavier'):
 
     def _init(m: nn.Module) -> None:
         if type(m) == nn.Linear or type(m) == nn.Conv2d:
-            w_init(m)
-            b_init(m)
+            w_init(m.weight)
+            b_init(m.bias)
 
     return _init
 
