@@ -1,8 +1,10 @@
+import warnings
 from typing import Iterable, Callable
 
 import torch
 import torch.nn as nn
 from torch.nn import Module
+import torch.utils.checkpoint as checkpoint
 from tqdm import tqdm, trange
 
 from utils.accumulator import Accumulator
@@ -19,13 +21,17 @@ class BasicNN(nn.Sequential):
 
     def __init__(self, device: torch.device = torch.device('cpu'), init_meth: str = 'xavier',
                  with_checkpoint: bool = True, *args: Module) -> None:
-
+        if with_checkpoint:
+            warnings.warn('使用“检查点机制”虽然会减少前向传播的内存使用，但是会大大增加训练计算量！')
+            self.__checkpoint = with_checkpoint
         super().__init__(*args)
         self.apply(init_wb(init_meth))
         # self.__init_wb(init_meth)
         self.apply(lambda m: m.to(device))
-        self.__device = device
 
+        self.__device = device
+        self.__last_backward_data = {}
+        self.__last_forward_output = {}
     # def __init_wb(self, func_str):
     #     assert func_str in init_funcs, f'不支持的初始化方式{func_str}, 当前支持的初始化方式包括{init_funcs}'
     #     if func_str == 'normal':
@@ -105,24 +111,14 @@ class BasicNN(nn.Sequential):
             pbar.close()
         return history
 
-    # @staticmethod
-    # def save_grad(name):
-    #     # 返回hook函数
-    #     def hook(grad):
-    #         print(f'name={name}, grad={grad}')
-    #
-    #     return hook
-
     hook_mute = False
 
-    last_forward_output = {}
-
-    @staticmethod
-    def hook_forward_fn(module, input, output):
+    # @staticmethod
+    def hook_forward_fn(self, module, input, output):
         if not BasicNN.hook_mute:
             print(f'{module.__class__.__name__} FORWARD')
         try:
-            last_input, last_output = BasicNN.last_forward_output.pop(module)
+            last_input, last_output = self.__last_forward_output.pop(module)
         except Exception as _:
             pass
         else:
@@ -136,21 +132,16 @@ class BasicNN(nn.Sequential):
                 flag = torch.equal(lo, o) and flag
             if not BasicNN.hook_mute:
                 print(f'output eq: {flag}')
-        BasicNN.last_forward_output[module] = input, output
-        # print(f'module: {module}')
-        # print(f'input_eq: {input}')
-        # print(f'output_eq: {output}')
+        self.__last_forward_output[module] = input, output
         if not BasicNN.hook_mute:
             print('-' * 20)
 
-    last_backward_data = {}
-
-    @staticmethod
-    def hook_backward_fn(module, grad_input, grad_output):
+    # @staticmethod
+    def hook_backward_fn(self, module, grad_input, grad_output):
         if not BasicNN.hook_mute:
             print(f'{module.__class__.__name__} BACKWARD')
         try:
-            last_input, last_output = BasicNN.last_backward_data.pop(module)
+            last_input, last_output = self.__last_backward_data.pop(module)
         except Exception as _:
             pass
         else:
@@ -170,10 +161,7 @@ class BasicNN(nn.Sequential):
                     flag = torch.equal(lo, o) and flag
                     if not BasicNN.hook_mute:
                         print(f'out_grad eq: {flag}')
-        BasicNN.last_backward_data[module] = grad_input, grad_output
-        # print(f'module: {module}')
-        # print(f'grad_input: {grad_input}')
-        # print(f'grad_output: {grad_output}')
+        self.__last_backward_data[module] = grad_input, grad_output
         if not BasicNN.hook_mute:
             print('-' * 20)
 
@@ -182,8 +170,10 @@ class BasicNN(nn.Sequential):
                         acc_func=single_argmax_accuracy) -> History:
         history = History('train_l', 'train_acc')
         for m in self:
-            m.register_forward_hook(hook=BasicNN.hook_forward_fn)
-            m.register_full_backward_hook(hook=BasicNN.hook_backward_fn)
+            # m.register_forward_hook(hook=BasicNN.hook_forward_fn)
+            # m.register_full_backward_hook(hook=BasicNN.hook_backward_fn)
+            m.register_forward_hook(hook=self.hook_forward_fn)
+            m.register_full_backward_hook(hook=self.hook_backward_fn)
         for _ in trange(num_epochs, unit='epoch', desc='Epoch training...',
                         mininterval=1):
             metric = Accumulator(3)  # 批次训练损失总和，准确率，样本数
@@ -213,6 +203,16 @@ class BasicNN(nn.Sequential):
     def train_with_k_fold(self, train_loaders_iter, optimizer, num_epochs: int = 10,
                           ls_fn: nn.Module = nn.L1Loss(), k = 10,
                           acc_fn=single_argmax_accuracy) -> History:
+        """
+        使用k折验证法进行模型训练
+        :param train_loaders_iter: 数据加载器供给，提供k折验证的每一次训练所需训练集加载器、验证集加载器
+        :param optimizer: 优化器
+        :param num_epochs: 迭代次数。数据集的总访问次数为k * num_epochs
+        :param ls_fn: 损失函数
+        :param k: 将数据拆分成k折，每一折轮流作验证集，余下k-1折作训练集
+        :param acc_fn: 准确度函数
+        :return: k折训练记录，包括每一折训练时的('train_l', 'train_acc', 'valid_l', 'valid_acc')
+        """
         k_fold_history = History('train_l', 'train_acc', 'valid_l', 'valid_acc')
         with tqdm(range(k), position=0, leave=True, unit='fold') as pbar:
             for train_iter, valid_iter in train_loaders_iter:
@@ -223,8 +223,8 @@ class BasicNN(nn.Sequential):
         return k_fold_history
 
     @torch.no_grad()
-    def test_(self, test_iter, acc_func=single_argmax_accuracy, loss: Callable = nn.L1Loss) \
-            -> [float, float]:
+    def test_(self, test_iter, acc_func=single_argmax_accuracy,
+              loss: Callable = nn.L1Loss) -> [float, float]:
         """
         测试方法，取出迭代器中的下一batch数据，进行预测后计算准确度和损失
         :param test_iter: 测试数据迭代器
@@ -263,3 +263,11 @@ class BasicNN(nn.Sequential):
 
     def __str__(self):
         return '网络结构：\n' + super().__str__() + '\n所处设备：' + str(self.__device)
+
+    def __call__(self, *args, **kwargs):
+        if self.__checkpoint:
+            return checkpoint.checkpoint_sequential(
+                self, len(list(self.named_children())), *args, **kwargs
+            )
+        else:
+            return super(BasicNN, self).__call__(*args, **kwargs)
