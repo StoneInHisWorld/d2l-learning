@@ -1,0 +1,8 @@
+{
+	"data_portion": 1,
+	"random_seed": 42,
+	"pic_mute": true,
+	"plot": true,
+	"print_net": false,
+	"device": "cuda"
+}

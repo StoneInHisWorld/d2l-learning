@@ -29,6 +29,7 @@ class LeavesTrain:
         self.__lazy = lazy
 
         self.__check_path(where)
+        assert 0 < small_data <= 1., '所取数据集需为源数据集的非空子集'
         if lazy:
             warnings.warn('将要进行懒加载。虽然这会降低内存消耗，但会极大地影响训练性能！')
             self.__read_data_lazily(small_data)
@@ -40,7 +41,7 @@ class LeavesTrain:
         print('reading indexes...')
         train_data = pd.read_csv(self.__train_dir__).values
         if small_data < 1:
-            train_data = data_slicer(train_data, small_data)
+            train_data, = data_slicer(small_data, True, train_data)
         # 提取测试文件中的信息
         img_paths, labels = [], []
         for path, label in train_data:
@@ -57,7 +58,7 @@ class LeavesTrain:
         train_features, train_labels = [], []
         train_data = pd.read_csv(self.__train_dir__).values
         if small_data < 1:
-            train_data = data_slicer(train_data, small_data)
+            train_data, = data_slicer(small_data, True, train_data)
         # 取出文件中的数据
         with tqdm(train_data, desc='reading data...', unit='img') as pbar:
             for img_path, label in pbar:
@@ -173,6 +174,9 @@ class LeavesTest:
     #         features_calls = []
     #     for call in features_calls:
     #         self.__features = call(self.__features)
+
+    def to(self, device: torch.device = 'cpu'):
+        self.device = device
 
     def __getitem__(self, item):
         return self.__features.iloc[item]

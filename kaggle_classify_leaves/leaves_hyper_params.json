@@ -1,24 +1,24 @@
 {
 	"k_s": [
-		10
+		5, 10
 	],
 	"base_s": [
 		2
 	],
 	"epochs_es": [
-		3
+		3, 5, 7, 10
 	],
 	"batch_sizes": [
-		512
+		4, 8, 16
 	],
 	"ls_fns": [
-		"entro"
+		"entro", "mse"
 	],
 	"lr_s": [
-		0.001
+		1e0, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5
 	],
 	"optim_str_s": [
-		"adam"
+		"adam", "sgd"
 	],
 	"w_decay_s": [
 		0.0
